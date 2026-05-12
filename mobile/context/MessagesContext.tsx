@@ -16,7 +16,7 @@ export type MessageThread = {
 
 type MessagesContextValue = {
   threads: Record<string, MessageThread>;
-  sendToPost: (post: MapPost, text: string, asAuthorReply?: boolean) => void;
+  sendToPost: (post: MapPost, text: string) => void;
 };
 
 const MessagesContext = createContext<MessagesContextValue | undefined>(undefined);
@@ -24,13 +24,13 @@ const MessagesContext = createContext<MessagesContextValue | undefined>(undefine
 export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const [threads, setThreads] = useState<Record<string, MessageThread>>({});
 
-  const sendToPost = useCallback((post: MapPost, text: string, asAuthorReply = false) => {
+  const sendToPost = useCallback((post: MapPost, text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const msg: ThreadMessage = {
       id,
-      from: asAuthorReply ? 'author' : 'me',
+      from: 'me',
       text: trimmed,
       createdAt: Date.now(),
     };
@@ -48,24 +48,22 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
-    if (!asAuthorReply) {
-      setTimeout(() => {
-        const reply: ThreadMessage = {
-          id: `auto-${Date.now()}`,
-          from: 'author',
-          text: `${post.authorName}: Mesajın için teşekkürler! En kısa sürede dönüş yapacağım.`,
-          createdAt: Date.now(),
+    setTimeout(() => {
+      const reply: ThreadMessage = {
+        id: `auto-${Date.now()}`,
+        from: 'author',
+        text: `${post.authorName}: Mesajın için teşekkürler! En kısa sürede dönüş yapacağım.`,
+        createdAt: Date.now(),
+      };
+      setThreads((prev) => {
+        const t = prev[post.id];
+        if (!t) return prev;
+        return {
+          ...prev,
+          [post.id]: { ...t, messages: [...t.messages, reply] },
         };
-        setThreads((prev) => {
-          const t = prev[post.id];
-          if (!t) return prev;
-          return {
-            ...prev,
-            [post.id]: { ...t, messages: [...t.messages, reply] },
-          };
-        });
-      }, 1500);
-    }
+      });
+    }, 1500);
   }, []);
 
   const value = useMemo(() => ({ threads, sendToPost }), [threads, sendToPost]);
