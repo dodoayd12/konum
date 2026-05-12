@@ -4,14 +4,15 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { KonumColors } from '@/constants/Theme';
 import { AuthProvider } from '@/context/AuthContext';
-import { MessagesProvider } from '@/context/MessagesContext';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
+import { app } from '@/lib/firebase';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -64,15 +65,22 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    void import('firebase/analytics').then(({ getAnalytics, isSupported }) => {
+      void isSupported().then((ok) => {
+        if (ok) getAnalytics(app);
+      });
+    });
+  }, []);
+
   if (!loaded) {
     return null;
   }
 
   return (
     <AuthProvider>
-      <MessagesProvider>
-        <RootLayoutNav />
-      </MessagesProvider>
+      <RootLayoutNav />
     </AuthProvider>
   );
 }

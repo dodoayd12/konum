@@ -104,7 +104,10 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            <Text style={styles.hint}>Demo: herhangi bir dolu alanla giriş yapılır; veri cihazda saklanır.</Text>
+            <Text style={styles.hint}>
+              Firebase: e-posta yoksa hesap oluşturulur; kayıtlıysa giriş yapılır. Konsolda E-posta/Şifre
+              kimlik doğrulamasını açmayı unutma.
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>
