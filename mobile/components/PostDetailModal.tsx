@@ -12,10 +12,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 import { CategoryColors, KonumColors } from '@/constants/Theme';
-import { useMessages, type ThreadMessage } from '@/context/MessagesContext';
+import { useAuth } from '@/context/AuthContext';
 import type { MapPost, PostCategory } from '@/data/mockPosts';
+import { usePostMessages, type ThreadMessage } from '@/hooks/usePostMessages';
+import { db } from '@/lib/firebase';
 
 const categoryLabel: Record<PostCategory, string> = {
   bildiri: 'Bildiri',
@@ -31,12 +34,11 @@ type Props = {
 
 export function PostDetailModal({ visible, post, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  const { threads, sendToPost } = useMessages();
+  const { user, firebaseUser } = useAuth();
+  const uid = user?.id ?? null;
+  const messages = usePostMessages(visible && post ? post.id : null, uid, post?.authorId ?? null);
   const [draft, setDraft] = useState('');
   const listRef = useRef<FlatList<ThreadMessage>>(null);
-
-  const thread = post ? threads[post.id] : undefined;
-  const messages = thread?.messages ?? [];
 
   useEffect(() => {
     if (visible && messages.length) {
@@ -48,9 +50,25 @@ export function PostDetailModal({ visible, post, onClose }: Props) {
 
   const accent = CategoryColors[post.category];
 
-  const send = () => {
-    sendToPost(post, draft);
+  const send = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || !firebaseUser || !user) return;
     setDraft('');
+    const senderName = user.displayName || firebaseUser.email || 'Kullanıcı';
+    await addDoc(collection(db, 'posts', post.id, 'messages'), {
+      senderId: firebaseUser.uid,
+      senderName,
+      text: trimmed,
+      createdAt: serverTimestamp(),
+      postTitle: post.title,
+      postBody: post.body,
+      postImageUrl: post.imageUrl,
+      postAuthorName: post.authorName,
+      postAuthorId: post.authorId,
+      postCategory: post.category,
+      postLatitude: post.latitude,
+      postLongitude: post.longitude,
+    });
   };
 
   return (
@@ -84,11 +102,7 @@ export function PostDetailModal({ visible, post, onClose }: Props) {
           }
           renderItem={({ item }) => (
             <View style={[styles.bubbleRow, item.from === 'me' ? styles.bubbleRowMe : styles.bubbleRowThem]}>
-              <View
-                style={[
-                  styles.bubble,
-                  item.from === 'me' ? styles.bubbleMe : styles.bubbleThem,
-                ]}>
+              <View style={[styles.bubble, item.from === 'me' ? styles.bubbleMe : styles.bubbleThem]}>
                 <Text style={item.from === 'me' ? styles.bubbleTextMe : styles.bubbleTextThem}>{item.text}</Text>
               </View>
             </View>
@@ -109,11 +123,11 @@ export function PostDetailModal({ visible, post, onClose }: Props) {
           />
           <Pressable
             onPress={send}
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || !firebaseUser}
             style={({ pressed }) => [
               styles.sendBtn,
-              !draft.trim() && styles.sendBtnDisabled,
-              pressed && draft.trim() && { opacity: 0.9 },
+              (!draft.trim() || !firebaseUser) && styles.sendBtnDisabled,
+              pressed && draft.trim() && firebaseUser && { opacity: 0.9 },
             ]}>
             <Text style={styles.sendBtnText}>Gönder</Text>
           </Pressable>

@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function postDoc(postId) {
+      return get(/databases/$(database)/documents/posts/$(postId));
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 5000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() <= 2000
+        && request.resource.data.latitude is number
+        && request.resource.data.longitude is number
+        && (request.resource.data.category == 'bildiri'
+            || request.resource.data.category == 'etkinlik'
+            || request.resource.data.category == 'anlik')
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() <= 100
+        && request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && (
+          postDoc(postId).data.authorId == request.auth.uid
+          || resource.data.senderId == request.auth.uid
+          || (resource.data.keys().hasAny(['audienceUid'])
+              && resource.data.audienceUid == request.auth.uid)
+        );
+
+        allow create: if request.auth != null
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.senderName is string
+          && request.resource.data.senderName.size() <= 100
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.postTitle is string
+          && request.resource.data.postBody is string
+          && request.resource.data.postImageUrl is string
+          && request.resource.data.postImageUrl.size() <= 2000
+          && request.resource.data.postAuthorName is string
+          && request.resource.data.postAuthorId is string
+          && request.resource.data.postCategory is string
+          && request.resource.data.postLatitude is number
+          && request.resource.data.postLongitude is number;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}
